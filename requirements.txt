@@ -1,0 +1,7 @@
+# Install a CUDA-compatible PyTorch wheel separately for GPU training.
+torch>=2.5,<2.6
+numpy>=2.2,<2.3
+scipy>=1.14,<2
+scikit-learn>=1.5,<2
+psutil>=6,<8
+tzdata>=2024.1
