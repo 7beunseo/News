@@ -47,6 +47,9 @@ python -u evaluate_best.py --dataset small --mode rcrin_full --seed 26111801 --o
 학습 중 완료된 에폭만으로 별도 TEST를 요청하려면 `evaluate_best.py`에
 `--interim`을 명시합니다. TEST 결과를 체크포인트 선택에 사용하지 않습니다.
 중간 TEST를 반복 관찰한 경우 미사용 독립 검증이라고 표현해서는 안 됩니다.
+선택된 에폭 번호는 모델마다 달라도 됩니다. 비교할 학습 예산을 동일하게 맞춘 뒤
+각 모델에서 VALID 최고를 선택합니다. 저장 기록에 6에폭 이후 결과가 있더라도
+이 평가 도구는 최대 5에폭 범위 안에서만 선택하며 TEST 점수로 재선택하지 않습니다.
 
 ## 전체 비교 큐
 
@@ -100,6 +103,16 @@ python compare_results.py --left runs/small/26111801/nrms_bce/research_TEST --ri
 단일 모델의 TEST가 아직 없다면 먼저 `evaluate_best.py`를 사용합니다.
 생성되는 데이터·가중치·예측·진단 결과는 Git 추적 대상에서 제외됩니다.
 
+세 모델 이상을 한 표에 넣을 때는 `--additional 이름 결과폴더`를 반복합니다.
+
+```bash
+python compare_results.py --left runs/small/26111801/nrms_bce/research_TEST --right runs/small/26111801/nrms_bce_pair/research_TEST --left-name NRMS-BCE --right-name NRMS-BCE-Pair --additional RCRIN runs/small/26111801/rcrin_full/research_TEST --out comparisons/small_three_models
+```
+
+이 경우 첫 모델을 기준으로 차이를 기록하고 입력한 순서를 유지합니다.
+TEST 점수로 승자 모델이나 checkpoint를 다시 선택하는 기능은 없습니다.
+별도 평가 도구를 사용했다면 해당 `manual_evaluations/.../research_TEST` 경로를 지정할 수 있습니다.
+
 ## 파일
 
 | 파일 | 역할 |
@@ -111,6 +124,7 @@ python compare_results.py --left runs/small/26111801/nrms_bce/research_TEST --ri
 | `metrics.py` | tie-aware 지표와 독립 구현 검산 |
 | `freeze.py`, `run_queue.py` | 설정 동결과 비교 큐 |
 | `evaluate_best.py` | 선택한 모델의 별도 TEST |
+| `selection.py` | 최대 5에폭의 VALID 최고 선택, 동률·유효성 검사 |
 | `diagnose.py` | VALID 보정 제거·역할/attention·FIT 기울기 진단 |
 | `compare_results.py` | 동일 원점 TEST 결과의 검산과 비교표 |
 | `tests/` | 모델·시간 인과성·지표 검사 |

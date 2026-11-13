@@ -4,9 +4,10 @@ from types import SimpleNamespace
 import unittest
 import uuid
 import numpy as np
-from compare_results import compare, KEYS
+from compare_results import compare, compare_many, KEYS
 from diagnose import imbalance
 from io_utils import save
+from selection import select_validation_best
 
 
 class AnalysisTests(unittest.TestCase):
@@ -25,6 +26,9 @@ class AnalysisTests(unittest.TestCase):
         result=compare(left,right)
         self.assertEqual(result['matched_origins'],2)
         self.assertAlmostEqual(result['delta_left_minus_right']['ndcg10'],-.1)
+        many=compare_many({'reference':right,'candidate':left,'same_reference':right})
+        self.assertEqual([r['model'] for r in many['rows']],['reference','candidate','same_reference'])
+        self.assertAlmostEqual(many['comparisons_vs_reference']['same_reference']['delta_left_minus_right']['ndcg10'],0.)
         file=right/'SESSIONS.csv';text=file.read_text(encoding='utf-8')
         file.write_text(text.replace('0,10,20,','0,999,20,'),encoding='utf-8')
         with self.assertRaisesRegex(AssertionError,'impression'):compare(left,right)
@@ -41,6 +45,18 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(result['FIT']['ranking_eligible_origins'],1)
         self.assertEqual(result['FIT']['candidate_click_fraction'],.25)
         self.assertEqual(result['VALID']['all_click_origins'],1)
+
+    def test_selection_ignores_later_epochs_and_test_scores(self):
+        records=[dict(epoch=2,validation_ndcg10=.4,test_ndcg10=.9),
+                 dict(epoch=4,validation_ndcg10=.5,test_ndcg10=.1),
+                 dict(epoch=5,validation_ndcg10=.5,test_ndcg10=.95),
+                 dict(epoch=6,validation_ndcg10=.99,test_ndcg10=.99)]
+        self.assertEqual(select_validation_best(records)['epoch'],4)
+        self.assertEqual(select_validation_best(records,max_epoch=2)['epoch'],2)
+        with self.assertRaises(ValueError):select_validation_best(records,max_epoch=8)
+        with self.assertRaises(ValueError):select_validation_best([records[-1]])
+        with self.assertRaises(ValueError):select_validation_best([records[0],records[0]])
+        with self.assertRaises(ValueError):select_validation_best([dict(epoch=1,validation_ndcg10=float('nan'))])
 
 
 if __name__=='__main__':unittest.main()
