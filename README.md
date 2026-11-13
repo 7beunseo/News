@@ -43,7 +43,7 @@ python -u train.py --dataset small --mode rcrin_full --seed 26111801
 python -u evaluate_best.py --dataset small --mode rcrin_full --seed 26111801 --out manual_evaluations/small_best
 ```
 
-8에폭 중 VALID NDCG@10 최고 에폭을 선택하고 동률이면 이른 에폭을 사용합니다.
+최대 5에폭 중 VALID NDCG@10 최고 에폭을 선택하고 동률이면 이른 에폭을 사용합니다.
 학습 중 완료된 에폭만으로 별도 TEST를 요청하려면 `evaluate_best.py`에
 `--interim`을 명시합니다. TEST 결과를 체크포인트 선택에 사용하지 않습니다.
 중간 TEST를 반복 관찰한 경우 미사용 독립 검증이라고 표현해서는 안 됩니다.
@@ -54,9 +54,51 @@ python -u evaluate_best.py --dataset small --mode rcrin_full --seed 26111801 --o
 python -u run_queue.py --dataset small
 ```
 
-기본 큐는 데이터셋당 9조건 × 3seed = 27회 학습입니다.
+기본 큐는 데이터셋당 4조건 × 1seed = 4회 학습입니다. Small과 Large를 모두 실행하면
+총 8회 학습이며, 8개 독립 seed가 아닙니다. 다중 seed 재현은 별도 후속 확인입니다.
 같은 seed의 모든 조건을 학습한 뒤 VALID 선택을 동결하고 TEST를 평가합니다.
 공통 인코더 초기값과 노출 순서의 일치를 검사합니다.
+
+| 순서 | 조건 | 학습 손실 |
+|---|---|---|
+| 1 | `nrms_bce` | 전체 후보 BCE |
+| 2 | `nrms_bce_pair` | BCE + 0.2 Pair |
+| 3 | `rcrin_no_exchange` | BCE + 0.2 Pair + 0.25 Role + 0.2 Edge, 역할 교환 제거 |
+| 4 | `rcrin_full` | 동일 손실, 양방향 역할 교환 적용 |
+
+Pair는 같은 노출에서 클릭한 뉴스의 점수가 비클릭 뉴스보다 높아지도록 하는
+`softplus(-(s_positive - s_negative))`의 쌍별 평균입니다.
+1↔2는 Pair, 2↔3은 보조 Role/Edge 감독, 3↔4는 교환 연산의 효과를 비교합니다.
+1↔3에는 Pair도 달라지므로 Role/Edge만의 효과라고 해석하지 않습니다.
+모델 파라미터 수와 연산량이 완전히 같은 비교는 아닙니다.
+
+원래 NRMS의 sampled-softmax CE 학습과 위 전체 후보 BCE 학습은 다른 조건입니다.
+다른 학습법·seed·배치 크기의 기존 실행을 비교할 때는 구조만의 인과 효과로 해석하지 않습니다.
+
+## VALID/FIT 진단
+
+```bash
+python -u diagnose.py --dataset small --mode rcrin_full --seed 26111801 --out diagnostics/small_rcrin
+```
+
+완료된 1~5에폭 중 VALID 최고 체크포인트를 고정하고 같은 가중치에서 관계 보정만
+제거한 점수, 역할 확률, 방향별 유효 attention 질량, gate, 클릭 불균형을 기록합니다.
+기본적으로 고정 FIT 최대 16개에서 각 완료 에폭의 공유 뉴스 인코더 기울기도 측정합니다.
+TEST 정답은 열지 않으며 optimizer 갱신은 없습니다. 출력 보정 제거는 재학습 ablation과 다르고,
+소수 FIT 표본의 gradient cosine은 전체 학습의 인과관계를 입증하지 않습니다.
+진단에는 CUDA가 필요하며 `--skip-gradients`로 기울기 진단을 생략할 수 있습니다.
+
+## 저장된 TEST 결과 비교
+
+```bash
+python compare_results.py --left runs/small/26111801/nrms_bce/research_TEST --right runs/small/26111801/nrms_bce_pair/research_TEST --left-name NRMS-BCE --right-name NRMS-BCE-Pair --out comparisons/small_bce_pair
+```
+
+두 폴더의 `COMPLETE.json`과 `SESSIONS.csv`를 읽어 평가 원점·노출·사용자 순서,
+지표 평균을 검산하고 CSV/JSON을 저장합니다. 재학습이나 TEST 기반 선택을 하지 않습니다.
+다른 epoch/seed/데이터 분할을 통제했는지는 별도로 확인해야 합니다.
+단일 모델의 TEST가 아직 없다면 먼저 `evaluate_best.py`를 사용합니다.
+생성되는 데이터·가중치·예측·진단 결과는 Git 추적 대상에서 제외됩니다.
 
 ## 파일
 
@@ -69,6 +111,8 @@ python -u run_queue.py --dataset small
 | `metrics.py` | tie-aware 지표와 독립 구현 검산 |
 | `freeze.py`, `run_queue.py` | 설정 동결과 비교 큐 |
 | `evaluate_best.py` | 선택한 모델의 별도 TEST |
+| `diagnose.py` | VALID 보정 제거·역할/attention·FIT 기울기 진단 |
+| `compare_results.py` | 동일 원점 TEST 결과의 검산과 비교표 |
 | `tests/` | 모델·시간 인과성·지표 검사 |
 
 NRMS는 [Wu et al. (2019)](https://aclanthology.org/D19-1671/)의 논문 기반

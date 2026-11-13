@@ -6,6 +6,7 @@ logs/
 queues/
 frozen/
 comparisons/
+diagnostics/
 docs/
 results/
 manual_evaluations/

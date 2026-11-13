@@ -118,7 +118,8 @@ def train(dataset,mode,seed):
             mode=mode,seed=seed,config=CFG,cpu_rng=torch.get_rng_state(),cuda_rng=torch.cuda.get_rng_state_all()),tmp);os.replace(tmp,run/'last_optimizer_state.pt')
         val=evaluate(model,data,titles,'valid',run/f'valid_epoch{epoch:02d}',run)
         entry=dict(epoch=epoch,training_loss=summed/seen,train_seconds=seconds,peak_cuda_MiB=memory,
-            validation_ndcg10=val['ndcg10'],origin_order_sha256=order_hash,checkpoint=str(cp),checkpoint_sha256=sha(cp))
+            validation_ndcg10=val['ndcg10'],loss_components=dict(zip(('click','role','edge','pair'),map(float,terms/seen))),
+            origin_order_sha256=order_hash,checkpoint=str(cp),checkpoint_sha256=sha(cp))
         records.append(entry);samplers[str(epoch)]=order_hash;save(run/'EPOCHS.json',records)
         if best is None or val['ndcg10']>best['validation_ndcg10']:best=entry
         save(run/'SELECTED_ON_VALID.json',best);print(__import__('json').dumps(entry),flush=True)

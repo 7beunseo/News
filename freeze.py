@@ -6,6 +6,7 @@ from io_utils import now,save,sha
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--datasets',nargs='+',choices=['small','large'],required=True);a=p.parse_args()
+    assert 1 <= CFG['epochs'] <= 5,'Comparisons use at most five epochs.'
     assert not (ROOT/'FROZEN_PROTOCOL.json').exists(),'Existing frozen protocol preserved. Use a new checkout for a new protocol.'
     for dataset in a.datasets:Impressions(dataset).audit()
     sources=[p for p in ROOT.glob('*.py')]+list((ROOT/'tests').glob('*.py'))
