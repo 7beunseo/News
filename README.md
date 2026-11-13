@@ -78,6 +78,45 @@ Pair는 같은 노출에서 클릭한 뉴스의 점수가 비클릭 뉴스보다
 원래 NRMS의 sampled-softmax CE 학습과 위 전체 후보 BCE 학습은 다른 조건입니다.
 다른 학습법·seed·배치 크기의 기존 실행을 비교할 때는 구조만의 인과 효과로 해석하지 않습니다.
 
+## NRMS Sampled CE + Pair 비교
+
+기존의 강한 Sampled CE 조건에 클릭·비클릭 Pairwise Loss만 추가하는 별도 실험입니다.
+위의 **전체 후보 BCE + Pair와 다른 학습 조건**이며 관계 모듈은 추가하지 않습니다.
+
+```bash
+python -u sampled_ce.py --dataset small --mode ce --seed 26111701
+python -u sampled_ce.py --dataset small --mode ce_pair --seed 26111701
+```
+
+먼저 위의 `prepare.py`로 데이터를 준비합니다. 이 두 실행은 각 실행 폴더에
+설정·소스·데이터 해시를 별도 동결하므로 기존 네 조건의 비교 큐를 변경하지 않습니다.
+각 명령은 **5에폭 학습 → VALID 최고 선택 → 전체 연구용 TEST 평가**를 수행합니다.
+`large`도 같은 명령으로 지원하지만, 코드를 지원한다는 것이 해당 실험 완료를 뜻하지는 않습니다.
+
+두 조건은 같은 NRMS, 무작위 초기값, seed, batch 64, microbatch 4, Adam 0.001,
+학습 사례 순서와 비클릭 샘플을 사용합니다. 하나의 노출에 클릭이 여러 개면
+클릭별로 학습 사례를 만들고, 그 노출의 비클릭 4개를 뽑습니다.
+비클릭이 4개보다 적을 때만 복원 추출합니다. TEST 정답은 학습·샘플링에 사용하지 않습니다.
+
+```text
+CE:       L = CrossEntropy([s_click, s_nonclick_1, ..., s_nonclick_4], target=0)
+CE+Pair:  L = CE + 0.2 * mean_j softplus(s_nonclick_j - s_click)
+```
+
+두 손실은 **동일한 네 비클릭**에 적용합니다. Pair 계수 0.2는 기존 Pair 대조군과
+같은 고정값이며 이 실행에서 탐색하지 않습니다. `pair_loss.py`는 현재 별도 작업
+폴더에서 실행 중인 실험과 동일한 손실 코드입니다. `sampled_ce.py`는 그 학습 규칙을
+이 저장소의 전처리·평가 코드에서 실행하도록 옮긴 배포본이며, 외부 작업 폴더를
+필요로 하지 않습니다. 별도의 대규모 학습을 완료했다는 의미는 아닙니다.
+
+출력은 `runs/<dataset>/<seed>/nrms_sampled_ce[_pair]/`에 저장됩니다.
+`EPOCHS.json`에는 에폭별 VALID 점수와 샘플 해시가, `research_TEST/`에는 선택한
+모델의 TEST 점수와 노출별 지표가 기록됩니다. 두 조건이 모두 완료되면 초기값,
+5에폭 샘플 순서, 소스, 입력 데이터와 TEST 노출을 검산하고
+`comparisons/<dataset>_<seed>_sampled_ce_pair/`에 비교표를 자동 생성합니다.
+단일 seed에서의 차이는 통계적 우위나 독립 재현을 의미하지 않습니다.
+이전에 반복 관찰한 공식 DEV는 미사용 TEST라고 표현하지 않습니다.
+
 ## VALID/FIT 진단
 
 ```bash
@@ -127,6 +166,7 @@ TEST 점수로 승자 모델이나 checkpoint를 다시 선택하는 기능은 �
 | `selection.py` | 최대 5에폭의 VALID 최고 선택, 동률·유효성 검사 |
 | `diagnose.py` | VALID 보정 제거·역할/attention·FIT 기울기 진단 |
 | `compare_results.py` | 동일 원점 TEST 결과의 검산과 비교표 |
+| `sampled_ce.py`, `pair_loss.py` | 같은 샘플의 NRMS CE / CE+Pair 학습·VALID 선택·TEST 비교 |
 | `tests/` | 모델·시간 인과성·지표 검사 |
 
 NRMS는 [Wu et al. (2019)](https://aclanthology.org/D19-1671/)의 논문 기반
