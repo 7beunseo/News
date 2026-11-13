@@ -4,6 +4,25 @@ RCRIN(Reciprocal Cross-Role Interaction Network)과 NRMS 대조군의 뉴스 추
 모델, 데이터 전처리, 학습, VALID 체크포인트 선택, TEST 평가 스크립트를 포함합니다.
 데이터셋·가중치·개별 예측·실험 결과는 포함하지 않습니다.
 
+## Role-Free 관계 학습 모델
+
+**사용자 이력 + 전체 후보 → 관계 벡터 → Relation Attention → 후보 표현 갱신 → 추천 점수**
+
+현재 클릭 여부는 Forward에 넣지 않고 클릭–비클릭 관계 감독에만 사용합니다.
+기존 RCRIN의 역할 추정기를 제거한 별도 구현이며, 뉴스·사용자 인코더부터 공동 학습합니다.
+상세 수식, 비교 조건, 실행 방법은 **[role_free/README.md](role_free/README.md)**에 있습니다.
+
+```bash
+python -m unittest discover -s tests -p test_role_free.py -v
+# 먼저 아래의 prepare.py로 MIND-small 준비
+python -m role_free.prepare_experiment
+python -u -m role_free.run_queue
+```
+
+자동 큐는 MIND-small 4조건, 각 최대 5에폭입니다. 학습 완료 후 VALID 최고
+체크포인트를 모두 동결하고 연구용 TEST를 평가합니다. 코드 공개는 학습 완료나
+성능 우위 확인을 의미하지 않습니다. 기존 RCRIN과 CE 실험은 그대로 사용할 수 있습니다.
+
 ## 설치 및 검사
 
 Python 3.10 이상과 CUDA 호환 PyTorch 2.5를 사용합니다.

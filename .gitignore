@@ -30,3 +30,7 @@ venv/
 *.log
 *.tmp
 *.lock
+# Role-free outputs: source and README stay tracked, generated research stays local.
+role_free/*.json
+role_free/RESULT_KO.html
+role_free/preflight/
