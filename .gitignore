@@ -34,3 +34,6 @@ venv/
 role_free/*.json
 role_free/RESULT_KO.html
 role_free/preflight/
+hccn/*.json
+hccn/RESULT_KO.html
+hccn/preflight/

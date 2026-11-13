@@ -4,6 +4,26 @@ RCRIN(Reciprocal Cross-Role Interaction Network)과 NRMS 대조군의 뉴스 추
 모델, 데이터 전처리, 학습, VALID 체크포인트 선택, TEST 평가 스크립트를 포함합니다.
 데이터셋·가중치·개별 예측·실험 결과는 포함하지 않습니다.
 
+## HCCN 독립 End-to-End 모델
+
+**공유 뉴스 Transformer → 다중 관심사 → 쌍별 관심사 선택 → 경쟁 그래프 → 추천 점수**
+
+HCCN은 NRMS의 점수에 보정을 더하지 않습니다. 자체 뉴스 인코더부터 그래프
+readout까지 처음부터 Sampled CE 하나로 학습하며, NRMS는 A0 비교군에만 사용합니다.
+현재 클릭·비클릭 라벨은 Forward에 넣지 않습니다.
+
+구조·수식·A0–A5 비교·3개 seed 실행 방법: **[hccn/README.md](hccn/README.md)**.
+
+```bash
+python -m unittest discover -s tests -p test_hccn.py -v
+# MIND-small 준비 후 실행
+python -m hccn.prepare_experiment
+python -u -m hccn.run_queue
+```
+
+MIND-small 6조건 × 3seed = 18회 학습을 순차 실행하며, 각 학습은 최대 5에폭입니다.
+이는 실행 계획의 크기이며 완료 실험 수나 성능 우위를 의미하지 않습니다.
+
 ## Role-Free 관계 학습 모델
 
 **사용자 이력 + 전체 후보 → 관계 벡터 → Relation Attention → 후보 표현 갱신 → 추천 점수**
